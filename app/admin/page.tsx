@@ -4,6 +4,26 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import { COUNTRIES } from '@/lib/countries';
 import { OUTCOMES, ago, outcomeLabel, outcomeTone } from '@/lib/outcomes';
 
+/** Multi-select of countries; value is a comma-separated list of codes. */
+function CountryPick({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  const sel = value ? value.split(',').filter(Boolean) : [];
+  const toggle = (code: string) => onChange(COUNTRIES.map((c) => c.code).filter((c) => (c === code ? !sel.includes(c) : sel.includes(c))).join(','));
+  return (
+    <details style={{ position: 'relative', display: 'inline-block' }}>
+      <summary className="btn ghost sm" style={{ listStyle: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        {sel.length ? sel.map((c) => COUNTRIES.find((x) => x.code === c)?.label || c).join(' + ') : placeholder}
+      </summary>
+      <div style={{ position: 'absolute', zIndex: 20, background: 'var(--card, #111)', border: '1px solid var(--line, #333)', borderRadius: 8, padding: 8, minWidth: 180 }}>
+        {COUNTRIES.map((c) => (
+          <label key={c.code} style={{ display: 'flex', gap: 8, padding: '3px 0', cursor: 'pointer' }}>
+            <input type="checkbox" checked={sel.includes(c.code)} onChange={() => toggle(c.code)} /> {c.label}
+          </label>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 type U = { id: number; email: string; role: string; country?: string | null; decks: number; tokens: number };
 type Stats = {
   days: number;
@@ -93,7 +113,7 @@ export default function Admin() {
 
   const shownCos = cos;
   const allSel = shownCos.length > 0 && shownCos.every((c) => sel.has(c.id));
-  const callersFor = (c: Co) => users.filter((u) => u.role !== 'admin' && u.country && u.country === c.country);
+  const callersFor = (c: Co) => users.filter((u) => u.role !== 'admin' && u.country && (u.country || '').split(',').includes(c.country || ''));
   async function deleteAllMatching() {
     if (!cTotal || !confirm(`Delete ALL ${cTotal} companies matching this filter, with their decks and call log?`)) return;
     const r = await fetch('/api/admin/companies', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ all: true, q: cq.trim(), country: cCountry, sector: cSector, state: cState }) });
@@ -338,10 +358,7 @@ export default function Admin() {
               <input type="email" placeholder="Email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required />
               <input type="text" placeholder="Password (min 8)" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required />
               <select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="user">Caller</option><option value="admin">Admin</option></select>
-              <select value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} title="Which country's companies this caller sees">
-                <option value="">Country: none</option>
-                {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-              </select>
+              <CountryPick value={f.country} onChange={(v) => setF({ ...f, country: v })} placeholder="Country: none" />
               <button className="btn">Add user</button>
             </form>
             {err && <div className="err">{err}</div>}
@@ -352,10 +369,7 @@ export default function Admin() {
               <tbody>{users.map((u) => (
                 <tr key={u.id}><td>{u.email}</td><td><span className="pill">{u.role}</span></td>
                   <td>{u.role === 'admin' ? <span style={{ color: 'var(--mute)' }}>all</span> : (
-                    <select value={u.country || ''} onChange={async (e) => { await fetch('/api/admin/users', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: u.id, country: e.target.value }) }); loadUsers(); }}>
-                      <option value="">Not set (sees nothing)</option>
-                      {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-                    </select>)}</td><td>{u.decks}</td><td>{u.tokens.toLocaleString()}</td>
+                    <CountryPick value={u.country || ''} placeholder="Not set (sees nothing)" onChange={async (v) => { await fetch('/api/admin/users', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: u.id, country: v }) }); loadUsers(); }} />)}</td><td>{u.decks}</td><td>{u.tokens.toLocaleString()}</td>
                   <td><button className="btn ghost sm" onClick={() => del(u)}>Remove</button></td></tr>
               ))}</tbody>
             </table>

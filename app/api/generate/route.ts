@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const { companyId, lang, stage = 'prep', deckId, manual } = await req.json();
   if (!LANGS.includes(lang)) return NextResponse.json({ error: 'Bad language' }, { status: 400 });
   if (!['prep', 'slides', 'presenter'].includes(stage)) return NextResponse.json({ error: 'Bad stage' }, { status: 400 });
-  const rows = await q('select * from companies where id=$1 and ($3::boolean or country=(select u0.country from users u0 where u0.id=$2))', [companyId, s.uid, s.role === 'admin']);
+  const rows = await q('select * from companies where id=$1 and ($3::boolean or country=any(string_to_array((select u0.country from users u0 where u0.id=$2),chr(44))))', [companyId, s.uid, s.role === 'admin']);
   const c = rows[0];
   if (!c) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
 

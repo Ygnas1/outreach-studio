@@ -10,7 +10,7 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
   const rows = await q(
     `select d.*, c.name, c.email, c.phone, c.website,
             (exists(select 1 from calls k where k.company_id=c.id and k.outcome='meeting_booked') or exists(select 1 from meetings m where m.company_id=c.id)) as agreed
-     from decks d join companies c on c.id=d.company_id where d.id=$1 and ($3::boolean or c.country=(select u0.country from users u0 where u0.id=$2))`,
+     from decks d join companies c on c.id=d.company_id where d.id=$1 and ($3::boolean or c.country=any(string_to_array((select u0.country from users u0 where u0.id=$2),chr(44))))`,
     [id, s.uid, s.role === 'admin']
   );
   const d = rows[0];
